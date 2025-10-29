@@ -13,7 +13,7 @@
     },
     {
       "src": "/(.*)",
-      "headers": {  // <-- headers 설정이 여기로 이동
+      "headers": {  // <-- headers 설정이 routes 안으로 이동해야 합니다.
         "Content-Security-Policy": "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;"
       },
       "dest": "app.py"
