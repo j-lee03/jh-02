@@ -1,0 +1,6 @@
+Flask
+pandas
+openpyxl
+gunicorn
+psycopg[binary]
+psycopg
