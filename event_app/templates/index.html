@@ -21,7 +21,7 @@
 </head>
 <body>
     <main class="container">
-
+        
         <header style="margin-top: 2rem;">
             <h1>공연 일정 🗓️</h1>
             <p>기준: {{ today_str }}</p>
@@ -34,11 +34,11 @@
                     <div class="grid">
                         <label for="search_date">
                             날짜 선택
-                            <input type="date" id="search_date" name="search_date"
+                            <input type="date" id="search_date" name="search_date" 
                                    value="{{ search_date_value | default('') }}">
                         </label>
                         <button type="submit" style="margin-top: 1.5rem;">검색</button>
-
+                        
                         <a href="/?mode=all" role="button" class="secondary" style="margin-top: 1.5rem;">
                             전체 목록 보기
                         </a>
@@ -49,18 +49,18 @@
 
         <section>
             <h2>{{ page_title }}</h2>
-
+            
             {% for p in performances %}
                 <article class="{% if p.Status == 'Special' %}special-event{% endif %}">
                     <header>
                         <strong>[{{ p.ID }}] {{ p.Title }}</strong>
                     </header>
-
+                    
                     <div class="details">
                         <p style="margin-bottom: 1rem;">
                             <strong>날짜:</strong> {{ p.Date }}
-                            <br><strong>위치(B):</strong> {{ p.Location }}
-                            <br><strong>구분(C):</strong> {{ p.Category }}
+                            <br><strong>위치(B):</strong> {{ p.Location }} 
+                            <br><strong>구분(C):</strong> {{ p.Category }} 
                             <br><strong>공연장(F):</strong> {{ p.Venue }}
                             <br><strong>인원(G):</strong> {{ p.TeamSetup }}
                             {% if p.Notes %}
@@ -83,7 +83,7 @@
                                 <button type="submit" name="action" value="change" class="secondary">
                                     변경
                                 </button>
-                                <button type="submit" name="action" value="cancel" class="contrast"
+                                <button type="submit" name="action" value="cancel" class="contrast" 
                                         onclick="return confirm('정말 [{{ p.Title }}] 공연을 취소하시겠습니까?');">
                                     취소
                                 </button>
@@ -106,7 +106,7 @@
             <h2>신규 공연 / 특별 행사 추가</h2>
             <article>
                 <form action="/add" method="POST">
-
+                    
                     <div class="grid">
                         <label for="id">
                             *ID (셀번호)
@@ -117,7 +117,7 @@
                             <input type="text" id="location" name="location">
                         </label>
                     </div>
-
+                    
                     <div class="grid">
                         <label for="category">
                             공연구분(C)
@@ -128,11 +128,11 @@
                             <input type="text" id="title" name="title" required>
                         </label>
                     </div>
-
+                    
                     <div class="grid">
                          <label for="date">
                             *날짜(E)
-                            <input type="text" id="date" name="date" required placeholder="YYYY-MM-DD"
+                            <input type="text" id="date" name="date" required placeholder="YYYY-MM-DD" 
                                    onfocus="this.type='date'" onblur="if(!this.value)this.type='text'">
                         </label>
                         <label for="venue">
@@ -151,14 +151,14 @@
                             <input type="text" id="notes" name="notes">
                         </label>
                     </div>
-
+                    
                     <fieldset>
                         <label for="event_type">
                             <input type="checkbox" id="event_type" name="event_type" value="Special">
                             특별 행사(Special Event)로 지정
                         </label>
                     </fieldset>
-
+                    
                     <button type="submit">추가하기</button>
                 </form>
             </article>
