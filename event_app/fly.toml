@@ -1,0 +1,27 @@
+# fly.toml (UI 보안 정책 수정)
+
+app = "event-app-hidden-morning-4981"
+primary_region = "nrt"
+
+[build]
+  builder = "paketobuildpacks/builder-jammy-base"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  # [추가됨] Pico.css CDN을 허용하는 보안 헤더
+  [http_service.response_headers]
+    Content-Security-Policy = "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;"
+
+[processes]
+  app = "gunicorn app:app --bind 0.0.0.0:8000"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
