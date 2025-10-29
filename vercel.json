@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "requirements.txt",
+      "use": "@vercel/static-build",
+      "config": {
+        "entrypoint": "pip3 install -r requirements.txt"
+      }
+    },
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ]
+}
