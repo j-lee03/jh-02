@@ -6,9 +6,7 @@ import psycopg # PostgreSQL
 from urllib.parse import urlparse # DB URL 파싱용
 
 # --- 앱 설정 ---
-# [수정됨] template_folder를 직접 지정합니다.
-# Vercel Root Directory 설정이 'event_app'이면 충돌할 수 있습니다.
-# 만약 TemplateNotFound 오류가 나면 Vercel Root Directory를 비워보세요.
+# [수정됨] template_folder를 'templates'로 직접 지정합니다.
 app = Flask(__name__, template_folder='templates') 
 
 DATABASE = 'events.db' # 로컬 테스트용
@@ -38,7 +36,7 @@ def close_connection(exception):
 
 # --- 웹페이지 라우팅(Routing) ---
 
-# 메인 페이지: 'Date' 검색을 'LIKE'로 변경 (더 유연하게)
+# [수정됨] 메인 페이지: 'Date' 검색을 'LIKE'로 변경 (더 유연하게)
 @app.route('/')
 def index():
     conn = get_db_conn()
@@ -65,6 +63,7 @@ def index():
             AND Date LIKE {placeholder}
             ORDER BY ID
         """
+        # LIKE 검색을 위해 '%' 와일드카드 추가
         query_params = (f"%{search_date}%",)
     
     elif mode == 'all':
