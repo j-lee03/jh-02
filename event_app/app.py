@@ -6,10 +6,11 @@ import psycopg # PostgreSQL
 from urllib.parse import urlparse # DB URL 파싱용
 
 # --- 앱 설정 ---
-app = Flask(__name__)
-# (사용자님이 요청하신 'template_folder' 설정은 Vercel의 Root Directory 설정과
-# 충돌할 수 있으므로, 'templates' 폴더가 app.py와 같은 레벨에 있다면 
-# (즉, event_app/templates) 이 설정은 필요 없습니다.)
+# [수정됨] template_folder를 직접 지정합니다.
+# Vercel Root Directory 설정이 'event_app'이면 충돌할 수 있습니다.
+# 만약 TemplateNotFound 오류가 나면 Vercel Root Directory를 비워보세요.
+app = Flask(__name__, template_folder='templates') 
+
 DATABASE = 'events.db' # 로컬 테스트용
 DATABASE_URL = os.environ.get('DATABASE_URL') # Vercel용
 
@@ -37,7 +38,7 @@ def close_connection(exception):
 
 # --- 웹페이지 라우팅(Routing) ---
 
-# [수정됨] 메인 페이지: 'Date' 검색을 'LIKE'로 변경 (더 유연하게)
+# 메인 페이지: 'Date' 검색을 'LIKE'로 변경 (더 유연하게)
 @app.route('/')
 def index():
     conn = get_db_conn()
@@ -64,7 +65,6 @@ def index():
             AND Date LIKE {placeholder}
             ORDER BY ID
         """
-        # LIKE 검색을 위해 '%' 와일드카드 추가
         query_params = (f"%{search_date}%",)
     
     elif mode == 'all':
@@ -76,7 +76,6 @@ def index():
             WHERE (Status != 'Cancelled' OR Status IS NULL OR Status = '')
             ORDER BY Date ASC
         """
-        # query_params는 비어있음
     
     else:
         # 3. "오늘 날짜 검색" (기본 페이지)
@@ -88,7 +87,6 @@ def index():
             AND Date LIKE {placeholder}
             ORDER BY ID
         """
-        # LIKE 검색을 위해 '%' 와일드카드 추가
         query_params = (f"%{today_str}%",)
 
     # 4. 쿼리 실행
