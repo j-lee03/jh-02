@@ -7,7 +7,7 @@ from urllib.parse import urlparse # DB URL 파싱용
 
 # --- 앱 설정 ---
 # [수정됨] template_folder를 'templates'로 직접 지정합니다.
-app = Flask(__name__, template_folder='templates') 
+app = Flask(__name__)
 
 DATABASE = 'events.db' # 로컬 테스트용
 DATABASE_URL = os.environ.get('DATABASE_URL') # Vercel용
