@@ -27,11 +27,16 @@ def migrate_data():
     try:
         print(f"로컬 DB ('{LOCAL_DB_FILE}') 읽기 시작...")
         sqlite_conn = sqlite3.connect(LOCAL_DB_FILE)
-        # 로컬 DB에서 기존 9개 열만 읽어옵니다.
         query = f'SELECT "ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status" FROM {TABLE_NAME}'
         df = pd.read_sql_query(query, sqlite_conn)
+        
+        # 데이터 정제
         df = df.where(pd.notnull(df), None)
-        print(f"✅ 로컬 DB에서 총 {len(df)}개의 데이터를 읽었습니다.")
+        df = df.dropna(how='all')
+        # [중요] ID 중복 제거 (첫 번째 항목만 유지)
+        df = df.drop_duplicates(subset=['ID'], keep='first')
+        
+        print(f"✅ 로컬 DB에서 총 {len(df)}개의 데이터를 읽었습니다. (중복 제거됨)")
         sqlite_conn.close()
 
         print("\nRender (NEW_DB)에 연결 및 데이터 복사 시작...")
@@ -39,7 +44,6 @@ def migrate_data():
         new_cursor = new_conn.cursor()
 
         print("기존 테이블 삭제 후, '승인' 기능이 추가된 새 테이블을 생성합니다...")
-        # [중요] 새 열(ApprovalStatus, RejectionReason)이 추가된 테이블 생성
         create_table_query = f"""
         DROP TABLE IF EXISTS {TABLE_NAME};
         CREATE TABLE {TABLE_NAME} (
@@ -58,7 +62,6 @@ def migrate_data():
         """
         new_cursor.execute(create_table_query)
 
-        # 기존 9개 열 데이터 삽입 (나머지 2개는 디폴트값으로 자동 생성됨)
         data_tuples = [tuple(x) for x in df.to_numpy()]
         insert_query = f"""
             INSERT INTO {TABLE_NAME} ("ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status")
