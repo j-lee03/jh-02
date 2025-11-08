@@ -1,87 +1,87 @@
 import pandas as pd
 import sqlite3
-import psycopg
+import psycopg # 새 라이브러리
 import os
-from io import StringIO
-import warnings
-
-warnings.filterwarnings("ignore")
+from urllib.parse import urlparse
 
 # --- 설정 ---
-LOCAL_DB_FILE = 'events.db'
+EXCEL_FILE = 'performances.xlsx'
 TABLE_NAME = 'performances'
-NEW_DB_URL = os.environ.get('RENDER_DB_URL')
+SHEET_NAME = '전체일정'
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def migrate_data():
-    if not NEW_DB_URL:
-        print("❌ 오류: 'RENDER_DB_URL' 환경 변수가 없습니다.")
-        return
 
-    if not os.path.exists(LOCAL_DB_FILE):
-        print(f"❌ 오류: 로컬 DB '{LOCAL_DB_FILE}'가 없습니다.")
-        return
-
-    sqlite_conn = None
-    new_conn = None
-
+    print(f"'{EXCEL_FILE}' 파일의 '{SHEET_NAME}' 시트 읽기를 시작합니다...")
     try:
-        print(f"로컬 DB ('{LOCAL_DB_FILE}') 읽기 시작...")
-        sqlite_conn = sqlite3.connect(LOCAL_DB_FILE)
-        query = f'SELECT "ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status" FROM {TABLE_NAME}'
-        df = pd.read_sql_query(query, sqlite_conn)
-        
-        # 데이터 정제
+        df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME, engine='openpyxl')
         df = df.where(pd.notnull(df), None)
         df = df.dropna(how='all')
-        # [중요] ID 중복 제거 (첫 번째 항목만 유지)
-        df = df.drop_duplicates(subset=['ID'], keep='first')
-        
-        print(f"✅ 로컬 DB에서 총 {len(df)}개의 데이터를 읽었습니다. (중복 제거됨)")
-        sqlite_conn.close()
+    except Exception as e:
+        print(f"엑셀 파일을 읽는 중 오류 발생: {e}")
+        print(f"'{EXCEL_FILE}' 파일 안에 '{SHEET_NAME}' 시트(탭)가 있는지 확인하세요.")
+        return
 
-        print("\nRender (NEW_DB)에 연결 및 데이터 복사 시작...")
-        new_conn = psycopg.connect(NEW_DB_URL)
-        new_cursor = new_conn.cursor()
+    print(f"'{SHEET_NAME}' 시트에서 (빈 행 제외) 총 {len(df)}개의 데이터를 읽었습니다.")
 
-        print("기존 테이블 삭제 후, '승인' 기능이 추가된 새 테이블을 생성합니다...")
-        create_table_query = f"""
-        DROP TABLE IF EXISTS {TABLE_NAME};
-        CREATE TABLE {TABLE_NAME} (
-            "ID" TEXT PRIMARY KEY,
-            "Location" TEXT,
-            "Category" TEXT,
-            "Title" TEXT,
-            "Date" TEXT,
-            "Venue" TEXT,
-            "TeamSetup" TEXT,
-            "Notes" TEXT,
-            "Status" TEXT,
-            "ApprovalStatus" TEXT DEFAULT '미승인',
-            "RejectionReason" TEXT
-        );
-        """
-        new_cursor.execute(create_table_query)
+    conn = None
+    try:
+        if DATABASE_URL:
+            print(f"클라우드 PostgreSQL DB에 연결합니다...")
+            conn = psycopg.connect(DATABASE_URL)
+            print("연결 성공. 기존 테이블을 삭제하고 새로 생성합니다.")
 
-        data_tuples = [tuple(x) for x in df.to_numpy()]
-        insert_query = f"""
-            INSERT INTO {TABLE_NAME} ("ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status")
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        new_cursor.executemany(insert_query, data_tuples)
+            cursor = conn.cursor()
+            cursor.execute(f"DROP TABLE IF EXISTS {TABLE_NAME};")
 
-        new_conn.commit()
-        new_cursor.close()
+            # 1. 생성 (대문자)
+            create_table_query = """
+            CREATE TABLE performances (
+                "ID" TEXT, 
+                "Location" TEXT, 
+                "Category" TEXT, 
+                "Title" TEXT, 
+                "Date" TEXT, 
+                "Venue" TEXT, 
+                "TeamSetup" TEXT, 
+                "Notes" TEXT, 
+                "Status" TEXT
+            );
+            """
+            cursor.execute(create_table_query)
+
+            data_tuples = [tuple(x) for x in df.to_numpy()]
+
+            # 2. [수정됨] 삽입 (대문자)
+            # INSERT 쿼리의 모든 열 이름에 큰따옴표(")를 추가합니다.
+            insert_query = f"""
+                INSERT INTO {TABLE_NAME} ("ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status") 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.executemany(insert_query, data_tuples)
+
+            conn.commit()
+            cursor.close()
+
+        else:
+            # 2. 로컬(SQLite)로 데이터 마이그레이션
+            print(f"'events.db' (로컬 SQLite)에 연결합니다...")
+            conn = sqlite3.connect('events.db')
+            df.to_sql(TABLE_NAME, conn, if_exists='replace', index=False)
+
         print("-------------------------------------------")
-        print(f"✅ Render DB 업데이트 완료! (승인 기능 추가됨)")
+        print(f"✅ 데이터 이동 성공!")
 
     except Exception as e:
-        print(f"\n❌ DB 작업 중 오류 발생: {e}")
-        if new_conn:
-            new_conn.rollback()
+        print(f"데이터베이스 작업 중 오류 발생: {e}")
+        if conn:
+            conn.rollback()
 
     finally:
-        if sqlite_conn: sqlite_conn.close()
-        if new_conn: new_conn.close()
+        if conn:
+            conn.close()
+            print("데이터베이스 연결을 닫았습니다.")
 
 if __name__ == '__main__':
     migrate_data()
