@@ -6,42 +6,33 @@
     <title>공연 일정 확인</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     <style>
-        .special-event {
-            --card-background-color: var(--pico-form-element-background-color);
-            border-left: 4px solid var(--pico-primary);
-        }
-        .details {
-            font-size: 0.9em;
-            color: var(--pico-secondary-foreground);
-        }
-        .details strong {
-            color: var(--pico-primary-foreground);
-        }
+        .special-event { --pico-card-background-color: #fffbf0; border-left: 4px solid var(--pico-primary); }
+        .details { font-size: 0.9em; color: var(--pico-secondary); }
+        /* 승인 상태 뱃지 스타일 */
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; }
+        .badge.approved { background-color: #28a745; color: white; }
+        .badge.pending { background-color: #ffc107; color: black; }
+        .badge.rejected { background-color: #dc3545; color: white; }
+        /* 반려 사유 입력칸 숨김/표시 */
+        details summary { cursor: pointer; color: var(--pico-del-color); }
     </style>
 </head>
 <body>
     <main class="container">
-
         <header style="margin-top: 2rem;">
             <h1>공연 일정 🗓️</h1>
             <p>기준: {{ today_str }}</p>
         </header>
 
         <section>
-            <h2>날짜로 검색</h2>
             <article>
                 <form method="GET" action="/">
                     <div class="grid">
-                        <label for="search_date">
-                            날짜 선택
-                            <input type="date" id="search_date" name="search_date"
-                                   value="{{ search_date_value | default('') }}">
+                        <label for="search_date">날짜 선택
+                            <input type="date" id="search_date" name="search_date" value="{{ search_date_value | default('') }}">
                         </label>
-                        <button type="submit" style="margin-top: 1.5rem;">검색</button>
-
-                        <a href="/?mode=all" role="button" class="secondary" style="margin-top: 1.5rem;">
-                            전체 목록 보기
-                        </a>
+                        <button type="submit" role="button" style="margin-top: 1.5rem;">검색</button>
+                        <a href="/?mode=all" role="button" class="secondary" style="margin-top: 1.5rem;">전체 목록 보기</a>
                     </div>
                 </form>
             </article>
@@ -49,121 +40,63 @@
 
         <section>
             <h2>{{ page_title }}</h2>
-
             {% for p in performances %}
                 <article class="{% if p.Status == 'Special' %}special-event{% endif %}">
                     <header>
                         <strong>[{{ p.ID }}] {{ p.Title }}</strong>
+                        <span style="float: right;">
+                            {% if p.ApprovalStatus == '승인' %}
+                                <span class="badge approved">승인완료</span>
+                            {% elif p.ApprovalStatus == '반려' %}
+                                <span class="badge rejected">반려됨</span>
+                            {% else %}
+                                <span class="badge pending">미승인 공연이 존재합니다</span>
+                            {% endif %}
+                        </span>
                     </header>
 
                     <div class="details">
-                        <p style="margin-bottom: 1rem;">
-                            <strong>날짜:</strong> {{ p.Date }}
-                            <br><strong>위치(B):</strong> {{ p.Location }}
-                            <br><strong>구분(C):</strong> {{ p.Category }}
-                            <br><strong>공연장(F):</strong> {{ p.Venue }}
-                            <br><strong>인원(G):</strong> {{ p.TeamSetup }}
-                            {% if p.Notes %}
-                                <br><strong>비고(H):</strong> {{ p.Notes }}
-                            {% endif %}
-                            {% if p.Status == 'Special' %}
-                                <br><strong>구분:</strong> ⭐️ 특별 행사
+                        <p>
+                            <strong>날짜:</strong> {{ p.Date }}<br>
+                            <strong>위치:</strong> {{ p.Location }} | <strong>구분:</strong> {{ p.Category }}<br>
+                            <strong>장소:</strong> {{ p.Venue }} | <strong>인원:</strong> {{ p.TeamSetup }}
+                            {% if p.Notes %}<br><strong>비고:</strong> {{ p.Notes }}{% endif %}
+                            {% if p.Status == 'Special' %}<br><strong>✨ 특별 행사</strong>{% endif %}
+                            {% if p.ApprovalStatus == '반려' and p.RejectionReason %}
+                                <br><strong style="color:#dc3545;">※ 반려 사유: {{ p.RejectionReason }}</strong>
                             {% endif %}
                         </p>
                     </div>
 
-                    <form action="/update" method="POST">
-                        <input type="hidden" name="id_to_update" value="{{ p.ID }}">
-                        <div class="grid" style="align-items: flex-end;">
-                            <label for="new_date_{{ p.ID }}">
-                                날짜 변경
-                                <input type="date" id="new_date_{{ p.ID }}" name="new_date">
-                            </label>
-                            <fieldset role="group" style="margin-bottom: 0;">
-                                <button type="submit" name="action" value="change" class="secondary">
-                                    변경
-                                </button>
-                                <button type="submit" name="action" value="cancel" class="contrast"
-                                        onclick="return confirm('정말 [{{ p.Title }}] 공연을 취소하시겠습니까?');">
-                                    취소
-                                </button>
-                            </fieldset>
-                        </div>
-                    </form>
+                    <footer>
+                        <form action="/update" method="POST">
+                            <input type="hidden" name="id_to_update" value="{{ p.ID }}">
+                            <div class="grid">
+                                <label>
+                                    <input type="date" name="new_date" style="height: 100%;">
+                                </label>
+                                <button type="submit" name="action" value="change" class="secondary">날짜변경</button>
+                                <button type="submit" name="action" value="cancel" class="contrast outline">취소</button>
+                            </div>
+                            <div class="grid" style="margin-top: 10px;">
+                                <button type="submit" name="action" value="approve" class="primary">승인</button>
+                                <details class="dropdown">
+                                    <summary role="button" class="outline delete">반려</summary>
+                                    <div style="padding: 10px; border: 1px solid #ccc; margin-top: 5px;">
+                                        <label for="reason-{{ p.ID }}">반려 사유 입력:</label>
+                                        <input type="text" id="reason-{{ p.ID }}" name="rejection_reason" placeholder="예: 일정 중복">
+                                        <button type="submit" name="action" value="reject" class="delete">반려 확정</button>
+                                    </div>
+                                </details>
+                            </div>
+                        </form>
+                    </footer>
                 </article>
             {% else %}
-                <article style="text-align: center;">
-                    {% if search_date_value %}
-                        '{{ search_date_value }}' 날짜에 예정된 공연이 없습니다.
-                    {% else %}
-                        예정된 공연이 없습니다. (DB에 데이터가 없습니다.)
-                    {% endif %}
-                </article>
+                <article style="text-align: center;">예정된 공연이 없습니다.</article>
             {% endfor %}
         </section>
 
-        <section>
-            <h2>신규 공연 / 특별 행사 추가</h2>
-            <article>
-                <form action="/add" method="POST">
-
-                    <div class="grid">
-                        <label for="id">
-                            *ID (셀번호)
-                            <input type="text" id="id" name="id" placeholder="예: 101 (중복불가)" required>
-                        </label>
-                        <label for="location">
-                            위치(B)
-                            <input type="text" id="location" name="location">
-                        </label>
-                    </div>
-
-                    <div class="grid">
-                        <label for="category">
-                            공연구분(C)
-                            <input type="text" id="category" name="category">
-                        </label>
-                        <label for="title">
-                            *공연제목(D)
-                            <input type="text" id="title" name="title" required>
-                        </label>
-                    </div>
-
-                    <div class="grid">
-                         <label for="date">
-                            *날짜(E)
-                            <input type="text" id="date" name="date" required placeholder="YYYY-MM-DD"
-                                   onfocus="this.type='date'" onblur="if(!this.value)this.type='text'">
-                        </label>
-                        <label for="venue">
-                            공연장위치(F)
-                            <input type="text" id="venue" name="venue">
-                        </label>
-                    </div>
-
-                    <div class="grid">
-                        <label for="team_setup">
-                            인원편성(G)
-                            <input type="text" id="team_setup" name="team_setup">
-                        </label>
-                        <label for="notes">
-                            비고(H)
-                            <input type="text" id="notes" name="notes">
-                        </label>
-                    </div>
-
-                    <fieldset>
-                        <label for="event_type">
-                            <input type="checkbox" id="event_type" name="event_type" value="Special">
-                            특별 행사(Special Event)로 지정
-                        </label>
-                    </fieldset>
-
-                    <button type="submit">추가하기</button>
-                </form>
-            </article>
-        </section>
-
-    </main>
+        </main>
 </body>
 </html>
