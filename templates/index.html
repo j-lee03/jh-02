@@ -8,13 +8,10 @@
     <style>
         .special-event { --pico-card-background-color: #fffbf0; border-left: 4px solid var(--pico-primary); }
         .details { font-size: 0.9em; color: var(--pico-secondary); }
-        /* 승인 상태 뱃지 스타일 */
         .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; }
         .badge.approved { background-color: #28a745; color: white; }
         .badge.pending { background-color: #ffc107; color: black; }
         .badge.rejected { background-color: #dc3545; color: white; }
-        /* 반려 사유 입력칸 숨김/표시 */
-        details summary { cursor: pointer; color: var(--pico-del-color); }
     </style>
 </head>
 <body>
@@ -69,34 +66,44 @@
                     </div>
 
                     <footer>
-                        <form action="/update" method="POST">
+                        <form action="/update" method="POST" style="margin-bottom: 10px;">
                             <input type="hidden" name="id_to_update" value="{{ p.ID }}">
                             <div class="grid">
-                                <label>
-                                    <input type="date" name="new_date" style="height: 100%;">
-                                </label>
+                                <label><input type="date" name="new_date" style="height: 100%;"></label>
                                 <button type="submit" name="action" value="change" class="secondary">날짜변경</button>
                                 <button type="submit" name="action" value="cancel" class="contrast outline">취소</button>
                             </div>
-                            <div class="grid" style="margin-top: 10px;">
-                                <button type="submit" name="action" value="approve" class="primary">승인</button>
-                                <details class="dropdown">
-                                    <summary role="button" class="outline delete">반려</summary>
-                                    <div style="padding: 10px; border: 1px solid #ccc; margin-top: 5px;">
-                                        <label for="reason-{{ p.ID }}">반려 사유 입력:</label>
-                                        <input type="text" id="reason-{{ p.ID }}" name="rejection_reason" placeholder="예: 일정 중복">
-                                        <button type="submit" name="action" value="reject" class="delete">반려 확정</button>
-                                    </div>
-                                </details>
-                            </div>
                         </form>
+
+                        <div class="grid">
+                            <form action="/update" method="POST" style="flex: 1;">
+                                <input type="hidden" name="id_to_update" value="{{ p.ID }}">
+                                <button type="submit" name="action" value="approve" class="primary" style="width: 100%;">승인</button>
+                            </form>
+                            <button type="button" class="outline delete" onclick="toggleRejectForm('{{ p.ID }}')" style="flex: 1;">반려</button>
+                        </div>
+
+                        <div id="reject-form-{{ p.ID }}" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--pico-del-color); border-radius: 4px;">
+                            <form action="/update" method="POST">
+                                <input type="hidden" name="id_to_update" value="{{ p.ID }}">
+                                <label for="reason-{{ p.ID }}">반려 사유:</label>
+                                <input type="text" id="reason-{{ p.ID }}" name="rejection_reason" required placeholder="사유를 입력하세요">
+                                <button type="submit" name="action" value="reject" class="delete" style="margin-top: 5px; width: 100%;">반려 확정</button>
+                            </form>
+                        </div>
                     </footer>
                 </article>
             {% else %}
                 <article style="text-align: center;">예정된 공연이 없습니다.</article>
             {% endfor %}
         </section>
+    </main>
 
-        </main>
+    <script>
+        function toggleRejectForm(id) {
+            var form = document.getElementById('reject-form-' + id);
+            form.style.display = (form.style.display === 'none') ? 'block' : 'none';
+        }
+    </script>
 </body>
 </html>
