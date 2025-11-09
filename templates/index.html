@@ -12,13 +12,22 @@
         .badge.approved { background-color: #28a745; color: white; }
         .badge.pending { background-color: #ffc107; color: black; }
         .badge.rejected { background-color: #dc3545; color: white; }
+        /* 휴지통 스타일 */
+        .deleted-event { --pico-card-background-color: #f8f9fa; border-left: 4px solid var(--pico-del-color); opacity: 0.8; }
     </style>
 </head>
 <body>
     <main class="container">
         <header style="margin-top: 2rem;">
             <h1>공연 일정 🗓️</h1>
-            <p>기준: {{ today_str }}</p>
+            <nav>
+                <ul>
+                    <li><strong>기준: {{ today_str }}</strong></li>
+                </ul>
+                <ul>
+                    <li><a href="/?mode=trash" role="button" class="outline contrast">🗑️ 휴지통 보기</a></li>
+                </ul>
+            </nav>
         </header>
 
         <section>
@@ -38,9 +47,10 @@
         <section>
             <h2>{{ page_title }}</h2>
             {% for p in performances %}
-                <article class="{% if p.Status == 'Special' %}special-event{% endif %}">
+                <article class="{% if p.Status == 'Special' %}special-event{% elif p.Status == 'Cancelled' %}deleted-event{% endif %}">
                     <header>
                         <strong>[{{ p.ID }}] {{ p.Title }}</strong>
+                        {% if p.Status != 'Cancelled' %}
                         <span style="float: right;">
                             {% if p.ApprovalStatus == '승인' %}
                                 <span class="badge approved">승인완료</span>
@@ -50,6 +60,7 @@
                                 <span class="badge pending">미승인 공연이 존재합니다</span>
                             {% endif %}
                         </span>
+                        {% endif %}
                     </header>
 
                     <div class="details">
@@ -58,47 +69,47 @@
                             <strong>위치:</strong> {{ p.Location }} | <strong>구분:</strong> {{ p.Category }}<br>
                             <strong>장소:</strong> {{ p.Venue }} | <strong>인원:</strong> {{ p.TeamSetup }}
                             {% if p.Notes %}<br><strong>비고:</strong> {{ p.Notes }}{% endif %}
-                            {% if p.Status == 'Special' %}<br><strong>✨ 특별 행사</strong>{% endif %}
-                            {% if p.ApprovalStatus == '반려' and p.RejectionReason %}
-                                <br><strong style="color:#dc3545;">※ 반려 사유: {{ p.RejectionReason }}</strong>
+                            {% if p.Status == 'Cancelled' %}
+                                <br><strong style="color: var(--pico-del-color);">🚫 삭제된 공연입니다.</strong>
                             {% endif %}
                         </p>
                     </div>
 
                     <footer>
-                        <form action="/update" method="POST" style="margin-bottom: 10px;">
+                        <form action="/update" method="POST">
                             <input type="hidden" name="id_to_update" value="{{ p.ID }}">
-                            <div class="grid">
-                                <label><input type="date" name="new_date" style="height: 100%;"></label>
-                                <button type="submit" name="action" value="change" class="secondary">날짜변경</button>
-                                <button type="submit" name="action" value="cancel" class="contrast outline">취소</button>
-                            </div>
+                            
+                            {% if p.Status == 'Cancelled' %}
+                                <button type="submit" name="action" value="restore" class="primary">♻️ 공연 복구하기</button>
+                            {% else %}
+                                <div class="grid" style="margin-bottom: 10px;">
+                                    <label><input type="date" name="new_date" style="height: 100%;"></label>
+                                    <button type="submit" name="action" value="change" class="secondary">날짜변경</button>
+                                    <button type="submit" name="action" value="cancel" class="contrast outline">삭제(휴지통)</button>
+                                </div>
+                                <div class="grid">
+                                    <button type="submit" name="action" value="approve" class="primary" style="flex: 1;">승인</button>
+                                    <button type="button" class="outline delete" onclick="toggleRejectForm('{{ p.ID }}')" style="flex: 1;">반려</button>
+                                </div>
+                                <div id="reject-form-{{ p.ID }}" style="display: none; margin-top: 10px;">
+                                    <input type="text" name="rejection_reason" placeholder="반려 사유 입력">
+                                    <button type="submit" name="action" value="reject" class="delete" style="width: 100%; margin-top:5px;">반려 확정</button>
+                                </div>
+                            {% endif %}
                         </form>
-
-                        <div class="grid">
-                            <form action="/update" method="POST" style="flex: 1;">
-                                <input type="hidden" name="id_to_update" value="{{ p.ID }}">
-                                <button type="submit" name="action" value="approve" class="primary" style="width: 100%;">승인</button>
-                            </form>
-                            <button type="button" class="outline delete" onclick="toggleRejectForm('{{ p.ID }}')" style="flex: 1;">반려</button>
-                        </div>
-
-                        <div id="reject-form-{{ p.ID }}" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--pico-del-color); border-radius: 4px;">
-                            <form action="/update" method="POST">
-                                <input type="hidden" name="id_to_update" value="{{ p.ID }}">
-                                <label for="reason-{{ p.ID }}">반려 사유:</label>
-                                <input type="text" id="reason-{{ p.ID }}" name="rejection_reason" required placeholder="사유를 입력하세요">
-                                <button type="submit" name="action" value="reject" class="delete" style="margin-top: 5px; width: 100%;">반려 확정</button>
-                            </form>
-                        </div>
                     </footer>
                 </article>
             {% else %}
-                <article style="text-align: center;">예정된 공연이 없습니다.</article>
+                <article style="text-align: center;">
+                    {% if current_mode == 'trash' %}
+                        휴지통이 비어있습니다.
+                    {% else %}
+                        예정된 공연이 없습니다.
+                    {% endif %}
+                </article>
             {% endfor %}
         </section>
     </main>
-
     <script>
         function toggleRejectForm(id) {
             var form = document.getElementById('reject-form-' + id);
