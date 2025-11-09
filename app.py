@@ -37,14 +37,12 @@ def index():
     display_date = None
     placeholder = "%s" if DATABASE_URL else "?"
 
-    # 기본 쿼리 (상태 조건 제외)
     base_query = """
         SELECT "ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status", "ApprovalStatus", "RejectionReason"
         FROM "performances"
     """
 
     if mode == 'trash':
-        # [추가됨] 휴지통 모드: 취소된 공연만 보기
         page_title = "🗑️ 휴지통 (삭제된 공연)"
         query = base_query + " WHERE \"Status\" = 'Cancelled' ORDER BY \"Date\" DESC"
     elif search_date:
@@ -71,11 +69,30 @@ def index():
 
 @app.route('/add', methods=['POST'])
 def add_event():
-    # (기존 코드와 동일)
     new_id = request.form['id']
-    # ... (나머지 폼 데이터 받아오기)
-    # ... (INSERT 쿼리 실행)
-    return redirect(url_for('index'))
+    location = request.form['location']
+    category = request.form['category']
+    title = request.form['title']
+    date_str = request.form['date']
+    venue = request.form['venue']
+    team_setup = request.form['team_setup']
+    notes = request.form['notes']
+    event_type = request.form.get('event_type', 'Scheduled')
+    placeholder = "%s" if DATABASE_URL else "?"
+
+    query = f"""
+        INSERT INTO "performances" ("ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status")
+        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+    """
+    conn = get_db_conn()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(query, (new_id, location, category, title, date_str, venue, team_setup, notes, event_type))
+        conn.commit()
+    except Exception as e:
+        print(f"오류: {e}")
+        pass
+    return redirect(url_for('index', search_date=date_str))
 
 @app.route('/update', methods=['POST'])
 def update_event():
@@ -85,11 +102,15 @@ def update_event():
     cursor = conn.cursor()
     placeholder = "%s" if DATABASE_URL else "?"
 
-    if action == 'cancel':
+    if action == 'cancel_performance':
+        # [수정] 공연 자체 취소 (휴지통 이동)
         query = f'UPDATE "performances" SET "Status" = \'Cancelled\' WHERE "ID" = {placeholder}'
         cursor.execute(query, (id_to_update,))
+    elif action == 'reset_approval':
+        # [추가] 승인/반려 결정 철회 (미승인 상태로 초기화)
+        query = f'UPDATE "performances" SET "ApprovalStatus" = \'미승인\', "RejectionReason" = NULL WHERE "ID" = {placeholder}'
+        cursor.execute(query, (id_to_update,))
     elif action == 'restore':
-        # [추가됨] 복구 기능: 상태를 'Scheduled'로 변경
         query = f'UPDATE "performances" SET "Status" = \'Scheduled\' WHERE "ID" = {placeholder}'
         cursor.execute(query, (id_to_update,))
     elif action == 'change':
@@ -106,10 +127,8 @@ def update_event():
         cursor.execute(query, (reason, id_to_update))
 
     conn.commit()
-    # 휴지통에서 복구했을 때는 휴지통 페이지에 남게 리다이렉트
     if action == 'restore':
          return redirect(url_for('index', mode='trash'))
-         
     return redirect(request.referrer or url_for('index'))
 
 if __name__ == '__main__':
