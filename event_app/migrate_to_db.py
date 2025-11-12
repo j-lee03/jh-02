@@ -2,6 +2,7 @@ import pandas as pd
 import psycopg
 import os
 import warnings
+import sqlite3 # 로컬 모드와의 호환성을 위해 남겨둠
 
 warnings.filterwarnings("ignore")
 
@@ -9,20 +10,24 @@ warnings.filterwarnings("ignore")
 EXCEL_FILE = 'performances.xlsx' # 깃허브에 올라간 엑셀 파일
 TABLE_NAME = 'performances'
 SHEET_NAME = '전체일정'
-NEW_DB_URL = os.environ.get('RENDER_DB_URL') # Render 서버의 환경 변수
+# Render 서버의 환경 변수(DATABASE_URL)를 자동으로 읽음
+NEW_DB_URL = os.environ.get('RENDER_DB_URL')
 
 def migrate_data():
     if not NEW_DB_URL:
+        # (로컬에서 실행 시 이쪽으로 분기될 수 있음)
         print("❌ 오류: 'RENDER_DB_URL' 환경 변수가 없습니다.")
         return
 
+    # [수정됨] Render 셸에는 'events.db'가 없으므로 'performances.xlsx'를 읽음
     if not os.path.exists(EXCEL_FILE):
         print(f"❌ 오류: 엑셀 파일 '{EXCEL_FILE}'을 찾을 수 없습니다.")
+        print("   깃허브에 엑셀 파일이 올바르게 올라갔는지 확인하세요.")
         return
 
     conn = None
     try:
-        # [수정됨] 로컬 DB 대신 엑셀 파일에서 데이터를 직접 읽습니다.
+        # 1. 엑셀 파일에서 데이터를 직접 읽습니다.
         print(f"'{EXCEL_FILE}' 파일의 '{SHEET_NAME}' 시트 읽기 시작...")
         df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME, engine='openpyxl')
         df = df.where(pd.notnull(df), None)
@@ -31,6 +36,7 @@ def migrate_data():
         print(f"✅ 엑셀에서 총 {len(df)}개의 데이터를 읽었습니다.")
 
         print("\nRender (NEW_DB)에 연결 및 데이터 복사 시작...")
+        # Render 서버는 'Internal Connection String'을 사용하므로 바로 연결됨
         conn = psycopg.connect(NEW_DB_URL)
         cursor = conn.cursor()
 
