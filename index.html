@@ -1,0 +1,66 @@
+<section>
+            <h2>신규 공연 / 특별 행사 추가</h2>
+            <article>
+                <form action="/add" method="POST">
+
+                    <div class="grid">
+                        <label for="id">
+                            *ID (자동 제안)
+                            <input type="text" id="id" name="id" value="{{ next_id }}" required>
+                        </label>
+                        <label for="location">
+                            위치(B)
+                            <input type="text" id="location" name="location">
+                        </label>
+                    </div>
+
+                    <div class="grid">
+                        <label for="category">
+                            공연구분(C)
+                            <input type="text" id="category" name="category">
+                        </label>
+                        <label for="title">
+                            *공연제목(D)
+                            <input type="text" id="title" name="title" required>
+                        </label>
+                    </div>
+
+                    <div class="grid">
+                         <label for="date">
+                            *날짜(E)
+                            <input type="date" id="date" name="date" required></label>
+                        <label for="venue">
+                            공연장위치(F)
+                            <input type="text" id="venue" name="venue">
+                        </label>
+                    </div>
+
+                    <div class="grid">
+                        <label for="team_setup">
+                            인원편성(G)
+                            <input type="text" id="team_setup" name="team_setup">
+                        </label>
+                        <label for="notes">
+                            비고(H)
+                            <input type="text" id="notes" name="notes">
+                        </label>
+                    </div>
+
+                    <fieldset>
+                        <label><input type="checkbox" name="event_type" value="Special"> 특별 행사로 지정</label>
+                    </fieldset>
+
+                    <button type="submit">추가하기</button>
+                </form>
+            </article>
+        </section>
+    </main>
+
+    <script>
+        function toggleRejectForm(id) {
+            var form = document.getElementById('reject-form-' + id);
+            form.style.display = (form.style.display === 'none') ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>
