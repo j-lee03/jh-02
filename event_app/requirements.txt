@@ -1,6 +1,5 @@
 Flask
+gunicorn
+psycopg
 pandas
 openpyxl
-gunicorn
-psycopg[binary]
-psycopg
