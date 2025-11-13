@@ -1,6 +1,5 @@
 Flask
-pandas
-openpyxl
 gunicorn
-psycopg[binary]
-psycopg
+psycopg-binary
+pandas
+openpyx
