@@ -11,12 +11,12 @@ EXCEL_FILE = 'performances.xlsx' # 깃허브에 올라간 엑셀 파일
 TABLE_NAME = 'performances'
 SHEET_NAME = '전체일정'
 # Render 서버의 환경 변수(DATABASE_URL)를 자동으로 읽음
-NEW_DB_URL = os.environ.get('RENDER_DB_URL')
+NEW_DB_URL = os.environ.get('DATABASE_URL')
 
 def migrate_data():
     if not NEW_DB_URL:
         # (로컬에서 실행 시 이쪽으로 분기될 수 있음)
-        print("❌ 오류: 'RENDER_DB_URL' 환경 변수가 없습니다.")
+        print("❌ 오류: 'DATABASE_URL' 환경 변수가 없습니다.")
         return
 
     # [수정됨] Render 셸에는 'events.db'가 없으므로 'performances.xlsx'를 읽음
