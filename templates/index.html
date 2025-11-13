@@ -13,7 +13,6 @@
         .badge.pending { background-color: #ffc107; color: black; }
         .badge.rejected { background-color: #dc3545; color: white; }
         .deleted-event { --pico-card-background-color: #f8f9fa; border-left: 4px solid var(--pico-del-color); opacity: 0.8; }
-        /* 드롭다운 버튼 스타일 조정 */
         details.dropdown summary.contrast { --pico-form-element-border-color: var(--pico-contrast); color: var(--pico-contrast); }
     </style>
 </head>
@@ -82,9 +81,8 @@
                                 <div class="grid" style="margin-bottom: 10px;">
                                     <label><input type="date" name="new_date" style="height: 100%;"></label>
                                     <button type="submit" name="action" value="change" class="secondary">날짜변경</button>
-                                    
                                     <details class="dropdown">
-                                        <summary role="button" class="contrast outline">취소/철회 선택</summary>
+                                        <summary role="button" class="contrast outline">취소/철회</summary>
                                         <ul>
                                             <li><button type="submit" name="action" value="cancel_performance" class="outline contrast" style="border:none; text-align:left; width:100%;">🚫 공연 취소 (휴지통)</button></li>
                                             {% if p.ApprovalStatus != '미승인' %}
@@ -93,13 +91,13 @@
                                         </ul>
                                     </details>
                                 </div>
-
                                 <div class="grid">
                                     <button type="submit" name="action" value="approve" class="primary" style="flex: 1;">승인</button>
                                     <button type="button" class="outline delete" onclick="toggleRejectForm('{{ p.ID }}')" style="flex: 1;">반려</button>
                                 </div>
-                                <div id="reject-form-{{ p.ID }}" style="display: none; margin-top: 10px;">
-                                    <input type="text" name="rejection_reason" placeholder="반려 사유 입력">
+                                <div id="reject-form-{{ p.ID }}" style="display: none; margin-top: 10px; border: 1px solid var(--pico-del-color); border-radius: 4px; padding: 10px;">
+                                    <label for="reason-{{ p.ID }}">반려 사유:</label>
+                                    <input type="text" id="reason-{{ p.ID }}" name="rejection_reason" required placeholder="사유를 입력하세요">
                                     <button type="submit" name="action" value="reject" class="delete" style="width: 100%; margin-top:5px;">반려 확정</button>
                                 </div>
                             {% endif %}
@@ -118,20 +116,26 @@
             <article>
                 <form action="/add" method="POST">
                     <div class="grid">
-                        <label>ID (셀번호)<input type="text" name="id" required></label>
-                        <label>위치(B)<input type="text" name="location"></label>
+                        <label for="id">
+                            *ID (자동 제안)
+                            <input type="text" id="id" name="id" value="{{ next_id }}" required>
+                        </label>
+                        <label for="location">
+                            위치(B)
+                            <input type="text" id="location" name="location">
+                        </label>
                     </div>
                     <div class="grid">
-                        <label>공연구분(C)<input type="text" name="category"></label>
-                        <label>공연제목(D)<input type="text" name="title" required></label>
+                        <label for="category">공연구분(C)<input type="text" id="category" name="category"></label>
+                        <label for="title">*공연제목(D)<input type="text" id="title" name="title" required></label>
                     </div>
                     <div class="grid">
-                         <label>날짜(E)<input type="date" name="date" required></label>
-                        <label>공연장위치(F)<input type="text" name="venue"></label>
+                         <label for="date">*날짜(E)<input type="date" id="date" name="date" required></label>
+                        <label for="venue">공연장위치(F)<input type="text" id="venue" name="venue"></label>
                     </div>
                     <div class="grid">
-                        <label>인원편성(G)<input type="text" name="team_setup"></label>
-                        <label>비고(H)<input type="text" name="notes"></label>
+                        <label for="team_setup">인원편성(G)<input type="text" id="team_setup" name="team_setup"></label>
+                        <label for="notes">비고(H)<input type="text" id="notes" name="notes"></label>
                     </div>
                     <fieldset>
                         <label><input type="checkbox" name="event_type" value="Special"> 특별 행사로 지정</label>

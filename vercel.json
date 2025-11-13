@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "builds": [
     {
       "src": "app.py",
@@ -9,6 +10,17 @@
     {
       "source": "/(.*)",
       "destination": "/app.py"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;"
+        }
+      ]
     }
   ]
 }
