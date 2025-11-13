@@ -6,76 +6,16 @@ import psycopg
 import pandas as pd
 import warnings
 
-# --- [수정됨] Flask 앱 설정 ---
-# Vercel이 'templates' 폴더를 찾을 수 있도록 절대 경로를 지정합니다.
+# --- 앱 설정 ---
+# (templates 폴더를 찾기 위한 절대 경로 설정)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
-# ------------------------------
 
-DATABASE = 'events.db'
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE = 'events.db' # 로컬 테스트용
+DATABASE_URL = os.environ.get('DATABASE_URL') # Vercel/Render용
 
-# --- [추가됨] DB 업데이트(마이그레이션) 함수 ---
-# (이하 app.py의 나머지 코드는 이전과 동일합니다)
-def migrate_data():
-    warnings.filterwarnings("ignore")
-    EXCEL_FILE = 'performances.xlsx'
-    TABLE_NAME = 'performances'
-    SHEET_NAME = '전체일정'
-
-    if not DATABASE_URL:
-        return "❌ 오류: DATABASE_URL 환경 변수가 없습니다."
-
-    if not os.path.exists(EXCEL_FILE):
-        return f"❌ 오류: 엑셀 파일 '{EXCEL_FILE}'을 찾을 수 없습니다."
-
-    conn = None
-    try:
-        print(f"'{EXCEL_FILE}' 파일의 '{SHEET_NAME}' 시트 읽기 시작...")
-        df = pd.read_excel(EXCEL_FILE, sheet_name=SHEET_NAME, engine='openpyxl')
-        df = df.where(pd.notnull(df), None)
-        df = df.dropna(how='all')
-        df = df.drop_duplicates(subset=['ID'], keep='first')
-        print(f"✅ 엑셀에서 총 {len(df)}개의 데이터를 읽었습니다.")
-
-        print("\nRender (NEW_DB)에 연결 및 데이터 복사 시작...")
-        conn = psycopg.connect(DATABASE_URL)
-        cursor = conn.cursor()
-
-        print("기존 테이블 삭제 후, 새 테이블(승인 기능 포함)을 생성합니다...")
-        create_table_query = f"""
-        DROP TABLE IF EXISTS {TABLE_NAME};
-        CREATE TABLE {TABLE_NAME} (
-            "ID" TEXT PRIMARY KEY, "Location" TEXT, "Category" TEXT, "Title" TEXT, "Date" TEXT,
-            "Venue" TEXT, "TeamSetup" TEXT, "Notes" TEXT, "Status" TEXT,
-            "ApprovalStatus" TEXT DEFAULT '미승인', "RejectionReason" TEXT
-        );
-        """
-        cursor.execute(create_table_query)
-
-        data_tuples = [tuple(x) for x in df.to_numpy()]
-        insert_query = f"""
-            INSERT INTO {TABLE_NAME} ("ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status")
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cursor.executemany(insert_query, data_tuples)
-
-        conn.commit()
-        cursor.close()
-        return "✅ Render DB 업데이트 완료! (승인 기능 추가됨)"
-
-    except Exception as e:
-        if conn: conn.rollback()
-        return f"❌ DB 작업 중 오류 발생: {e}"
-    finally:
-        if conn: conn.close()
-
-@app.route('/migrate-db-now')
-def run_migration():
-    result = migrate_data()
-    return f"<pre>{result}</pre>"
-
+# --- (이하 기존 코드) ---
 def get_db_conn():
     conn = getattr(g, '_database', None)
     if conn is None:
@@ -93,6 +33,57 @@ def close_connection(exception):
     if conn is not None:
         conn.close()
 
+# --- [추가됨] DB 스키마 자동 점검 및 업데이트 함수 ---
+def check_and_update_schema():
+    if not DATABASE_URL:
+        return "INFO: No DATABASE_URL found, skipping schema check (Local mode)."
+
+    conn = None
+    try:
+        conn = psycopg.connect(DATABASE_URL)
+        cursor = conn.cursor()
+
+        # 1. 'ApprovalStatus' 열이 DB에 존재하는지 확인
+        cursor.execute("""
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='performances' AND column_name='approvalstatus';
+        """)
+
+        # (PostgreSQL은 소문자로 저장하므로 'approvalstatus' 확인)
+        column_exists = cursor.fetchone()
+
+        if not column_exists:
+            # 2. 만약 열이 없다면, 테이블 구조를 변경 (데이터 삭제 안 함)
+            print("WARNING: 'ApprovalStatus' column not found. Running migration...")
+            cursor.execute("""
+                ALTER TABLE "performances" 
+                ADD COLUMN "ApprovalStatus" TEXT DEFAULT '미승인',
+                ADD COLUMN "RejectionReason" TEXT;
+            """)
+            conn.commit()
+            return "✅ Schema updated successfully (ApprovalStatus added)."
+        else:
+            # 3. 열이 이미 존재하면, 아무것도 안 함
+            return "INFO: Database schema is up-to-date."
+
+    except Exception as e:
+        if conn: conn.rollback()
+        # (테이블이 아예 없을 수도 있으므로, 이 경우엔 무시)
+        if "relation \"performances\" does not exist" in str(e):
+            return "INFO: Table 'performances' not found. Will be created by migrate script."
+        return f"❌ Schema check failed: {e}"
+    finally:
+        if conn: conn.close()
+# --------------------------------------------------
+
+# --- [추가됨] Vercel 앱 시작 시, DB 자동 점검 1회 실행 ---
+with app.app_context():
+    print("INFO: App startup detected. Checking schema...")
+    schema_result = check_and_update_schema()
+    print(f"INFO: Schema check result: {schema_result}")
+# --------------------------------------------------
+
+
 @app.route('/')
 def index():
     conn = get_db_conn()
@@ -105,6 +96,7 @@ def index():
     display_date = None
     placeholder = "%s" if DATABASE_URL else "?"
 
+    # (DB 열 이름은 PostgreSQL 대소문자 구분을 위해 큰따옴표 사용)
     base_query = f"""
         SELECT "ID", "Location", "Category", "Title", "Date", "Venue", "TeamSetup", "Notes", "Status", "ApprovalStatus", "RejectionReason"
         FROM "performances"
@@ -136,10 +128,11 @@ def index():
 
     performances = cursor.fetchall()
 
+    # --- 다음 ID 계산 (숫자만 필터링) ---
     try:
-        if DATABASE_URL:
+        if DATABASE_URL: # PostgreSQL
             cursor.execute('SELECT MAX(CAST("ID" AS INTEGER)) AS max_id FROM "performances" WHERE "ID" ~ \'^[0-9]+$\'')
-        else:
+        else: # SQLite
             cursor.execute('SELECT MAX(CAST(ID AS INTEGER)) AS max_id FROM performances WHERE ID GLOB \'[0-9]*\'')
 
         max_id_result = cursor.fetchone()
@@ -158,6 +151,7 @@ def index():
 
 @app.route('/add', methods=['POST'])
 def add_event():
+    # (신규 추가 폼 로직 ...)
     new_id = request.form['id']
     location = request.form['location']
     category = request.form['category']
@@ -185,6 +179,7 @@ def add_event():
 
 @app.route('/update', methods=['POST'])
 def update_event():
+    # (업데이트/승인/반려 로직 ...)
     id_to_update = request.form['id_to_update']
     action = request.form['action']
     conn = get_db_conn()
